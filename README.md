@@ -23,7 +23,7 @@ FAA1.csv and FAA2.csv datasets uploaded in this repository.
 * **Height** (in meters): The height of an aircraft when it is passing over the threshold of the runway. The landing aircraft is required to be at least 6 meters high at the threshold of the runway
 * **Pitch** (in degrees): Pitch angle of an aircraft when it is passing over the threshold of the runway.
 * **Distance** (in feet): The landing distance of an aircraft. More specifically, it refers to the distance between the threshold of the runway and the point where the aircraft can be fully stopped. The length of the airport runway is typically less than 6000 feet.
-###*Binary Response created to use Logistic Regression*
+### *Binary Response created to use Logistic Regression*
 * **Long.Landing** (in feet):long.landing = 1 if Distance > 2500; =0 otherwise
 * **risky.Landing** (in feet):risky.landing = 1 if distance > 3000; =0 otherwise.
 
