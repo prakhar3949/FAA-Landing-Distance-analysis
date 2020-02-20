@@ -1,0 +1,448 @@
+---
+title: "Statistical Modeling_ProjectPart2"
+output:
+  pdf_document: default
+  html_notebook: default
+---
+#FLIGHT LANDING DISTANCE ANALYSIS - Logistic Regression
+Following is the continuation of the Part 1 report on the FAA dataset. The response variable of the original FAA dataset has been updated and has been split into 2 binary variables(Long landing, Risky landing) to suit our purpose of using Logistic regression model. The cleaned FAA dataset file has been used as is. 
+
+```{r, warning=FALSE, message=FALSE}
+library(tidyverse)
+library(psych)
+library(dplyr)
+library(funModeling)
+library(ggplot2)
+```
+```{r, warning=FALSE, message=FALSE}
+FAA_uniq <- read.csv("FAA_uniq.csv", header=TRUE)
+str(FAA_uniq)
+```
+###Step 1
+```{r}
+###Adding 2 new binary variables
+FAA_uniq$long.landing <- ifelse(FAA_uniq$distance>2500,1,0)
+FAA_uniq$risky.landing <- ifelse(FAA_uniq$distance>3000,1,0)
+
+#Dropping the distance column
+FAA_uniq$distance <- NULL
+str(FAA_uniq)
+```
+The two new variables have been added and distance variable has been dropped successfully.
+###Step 2
+```{r, warning=FALSE, message=FALSE}
+
+hist(FAA_uniq$long.landing)
+
+colnames(FAA_uniq)
+```
+As speed_air variable has close to 75% missing values, is capped and has a high collinearity with speed_ground, we would be ignoring this variable from further analysis .
+```{r}
+#Dropping the Speed_Air column
+FAA_uniq$speed_air <- NULL
+```
+#Step-3 Performing single-factor regression analysis
+```{r, message=FALSE, warning=FALSE}
+lr.longlanding.aircraft<- glm(long.landing~aircraft, family=binomial(link = "logit"), data=FAA_uniq)
+lr.longlanding.np<- glm(long.landing~no_pasg, family=binomial(link = "logit"), data=FAA_uniq)
+lr.longlanding.sg<- glm(long.landing~speed_ground, family=binomial(link = "logit"), data=FAA_uniq)
+lr.longlanding.h<- glm(long.landing~height, family=binomial(link = "logit"), data=FAA_uniq)
+lr.longlanding.pitch<- glm(long.landing~pitch, family=binomial(link = "logit"), data=FAA_uniq)
+lr.longlanding.duration<- glm(long.landing~duration, family=binomial(link = "logit"), data=FAA_uniq)
+```
+###Table to rank the factors on the basis on regression summary statistics
+```{r message=FALSE, warning=FALSE}
+
+sum.aircraft <- summary(lr.longlanding.aircraft)
+sum.aircraft$coefficients[2,4]
+
+Variable_Name<- rbind(variable.names(lr.longlanding.aircraft)[2],variable.names(lr.longlanding.np)[2],
+variable.names(lr.longlanding.sg)[2],variable.names(lr.longlanding.h)[2],
+variable.names(lr.longlanding.pitch)[2],variable.names(lr.longlanding.duration)[2])
+
+Size_Reg_Coeff <- rbind((summary(lr.longlanding.aircraft))$coefficients[2],(summary(lr.longlanding.np))$coefficients[2]
+                  ,(summary(lr.longlanding.sg))$coefficients[2],
+                  (summary(lr.longlanding.h))$coefficients[2],
+                  (summary(lr.longlanding.pitch))$coefficients[2],
+                  (summary(lr.longlanding.duration))$coefficients[2])
+odds_ratio <- rbind(exp(coef(lr.longlanding.aircraft)[2]),exp(coef(lr.longlanding.np)[2]),
+                    exp(coef(lr.longlanding.sg)[2]),exp(coef(lr.longlanding.h)[2]),
+                    exp(coef(lr.longlanding.pitch)[2]),exp(coef(lr.longlanding.duration)[2]))
+direction_p <- rbind(ifelse(coef(lr.longlanding.aircraft)[2]>0,'Positive','Negative'),
+                     ifelse(coef(lr.longlanding.np)[2]>0,'Positive','Negative'),
+                     ifelse(coef(lr.longlanding.sg)[2]>0,'Positive','Negative'),
+                     ifelse(coef(lr.longlanding.h)[2]>0,'Positive','Negative'),
+                     ifelse(coef(lr.longlanding.pitch)[2]>0,'Positive','Negative'),
+                     ifelse(coef(lr.longlanding.duration)[2]>0,'Positive','Negative'))
+p_value <- rbind(summary(lr.longlanding.aircraft)$coefficients[2,4],
+                 summary(lr.longlanding.np)$coefficients[2,4],
+                 summary(lr.longlanding.sg)$coefficients[2,4],
+                 summary(lr.longlanding.h)$coefficients[2,4],
+                 summary(lr.longlanding.pitch)$coefficients[2,4],
+                 summary(lr.longlanding.duration)$coefficients[2,4])
+Table_1 <- cbind(Variable_Name,Size_Reg_Coeff,odds_ratio,direction_p,p_value)
+
+colnames(Table_1) <- c("Names of Variables","Size of Regression Coefficient","Odds Ratio","Direction of coefficient","p-value")
+
+Table_1 <- as.data.frame(Table_1)
+
+Table_1[,2] <- as.character(Table_1[,2])
+Table_1[,5] <- as.character(Table_1[,5])
+Table_1[,3] <- as.character(Table_1[,3])
+Table_1[,1] <- as.character(Table_1[,1])
+Table_1[,2] <- as.numeric(Table_1[,2])
+Table_1[,5] <- as.numeric(Table_1[,5])
+Table_1[,3] <- as.numeric(Table_1[,3])
+
+
+Table_1 <- Table_1[order(Table_1[,5],-Table_1[,3],-abs(Table_1[,2])),]
+Table_1
+str(Table_1)
+```
+###Step4 - Visualize the association
+```{r, message=FALSE, warning=FALSE}
+ggplot(FAA_uniq, aes(x=speed_ground, fill=as.factor(long.landing)))+geom_histogram(position="dodge")+theme(legend.position = "top")
+```
+The data for speed_ground in respect to long landing = 0 is rightly skewed. 
+```{r}
+ggplot(FAA_uniq, aes(x=aircraft, fill=as.factor(long.landing)))+geom_histogram(position="dodge")+theme(legend.position = "top")
+```
+
+```{r, message=FALSE, warning=FALSE}
+ggplot(FAA_uniq, aes(x=pitch, fill=as.factor(long.landing)))+geom_histogram(position="dodge")+theme(legend.position = "top")
+```
+The data for pitch in respect to long landing = 0 is normally distributed.
+```{r, message=FALSE, warning=FALSE}
+ggplot(FAA_uniq, aes(x=height, fill=as.factor(long.landing)))+geom_histogram(position="dodge")+theme(legend.position = "top")
+```
+The data for height in respect to long landing = 0 is normally distributed.
+
+###Step5 Building the full model
+
+```{r, message=FALSE, warning=FALSE}
+full.lr<-glm(long.landing~., FAA_uniq, family=binomial)
+summary(full.lr)
+```
+
+#Step6 Forward Variable selection using AIC
+```{r, message=FALSE, warning=FALSE}
+
+null_model<- glm(long.landing ~ 1,data=FAA_uniq,family=binomial)
+full_model <- glm(long.landing ~ .,data=FAA_uniq,family=binomial)
+mAIC<-step(null_model,scope=list(lower=null_model, upper=full_model),trace=0,direction = "forward")
+summary(mAIC)
+```
+The forward selection method has selected the significant variables to be 
+1. Speed_Ground
+2. Aircraft
+3. Height
+4. Pitch
+
+#Step7 Forward Variable Selection using BIC
+```{r, message=FALSE, warning=FALSE}
+mBIC<-step(null_model,scope=list(lower=null_model, upper=full_model),k=log(nrow(FAA_uniq)))
+summary(mBIC)
+```
+BIC penalizes free parameters more strongly, unlike the AIC. Hence, as per BIC, the best model is with 3 factors(speed_ground, aircraft, height) removing the additional and less significant factor(pitch) while AIC provided the good model with all the 4 factors.
+
+#Step8 Important Inferences to present
+1. Best Logistic Regression model:
+#long landing=-98.86 + 0.89*speed_ground + 4.91*aircraft + 0.22*height
+2. We have ignored speed_air as a variable from our model as it has a lot of missing values and is highly collinear with speed_ground.
+3. The analysis after performing forward selection using AIC and BIC has provided us with the best model having 3 predictor variables(speed_Ground, Aircraft and Height) having AIC=62.40.
+4. p-values are very less than 0.05; and regression coefficients are positive depicting to be in same direction of the response variable.
+
+##Identifying important factors using the binary data of “risky.landing”
+Step9 - Performing the same steps for risky.landing variable
+```{r, message=FALSE, warning=FALSE}
+#Fitting the logistic model - single factor analysis
+lr.risklanding<-glm(risky.landing~., family=binomial, FAA_uniq)
+summary(lr.risklanding)
+coef(lr.risklanding)
+lr.risklanding.aircraft<- glm(risky.landing~aircraft, family=binomial(link = "logit"), data=FAA_uniq)
+lr.risklanding.np<- glm(risky.landing~no_pasg, family=binomial(link = "logit"), data=FAA_uniq)
+lr.risklanding.sg<- glm(risky.landing~speed_ground, family=binomial(link = "logit"), data=FAA_uniq)
+lr.risklanding.h<- glm(risky.landing~height, family=binomial(link = "logit"), data=FAA_uniq)
+lr.risklanding.pitch<- glm(risky.landing~pitch, family=binomial(link = "logit"), data=FAA_uniq)
+lr.risklanding.duration<- glm(risky.landing~duration, family=binomial(link = "logit"), data=FAA_uniq)
+```
+###Table to rank the factors on the basis on regression summary statistics
+```{r message=FALSE, warning=FALSE}
+
+sum.aircraft.risk <- summary(lr.risklanding)
+
+Variable_Name1<- rbind(variable.names(lr.risklanding.aircraft)[2],variable.names(lr.risklanding.np)[2],
+variable.names(lr.risklanding.sg)[2],variable.names(lr.risklanding.h)[2],
+variable.names(lr.risklanding.pitch)[2],variable.names(lr.risklanding.duration)[2])
+
+Size_Reg_Coeff1 <- rbind((summary(lr.risklanding.aircraft))$coefficients[2],(summary(lr.risklanding.np))$coefficients[2]
+                  ,(summary(lr.risklanding.sg))$coefficients[2],
+                  (summary(lr.risklanding.h))$coefficients[2],
+                  (summary(lr.risklanding.pitch))$coefficients[2],
+                  (summary(lr.risklanding.duration))$coefficients[2])
+odds_ratio <- rbind(exp(coef(lr.risklanding.aircraft)[2]),exp(coef(lr.risklanding.np)[2]),
+                    exp(coef(lr.risklanding.sg)[2]),exp(coef(lr.risklanding.h)[2]),
+                    exp(coef(lr.risklanding.pitch)[2]),exp(coef(lr.risklanding.duration)[2]))
+direction_p <- rbind(ifelse(coef(lr.risklanding.aircraft)[2]>0,'Positive','Negative'),
+                     ifelse(coef(lr.risklanding.np)[2]>0,'Positive','Negative'),
+                     ifelse(coef(lr.risklanding.sg)[2]>0,'Positive','Negative'),
+                     ifelse(coef(lr.risklanding.h)[2]>0,'Positive','Negative'),
+                     ifelse(coef(lr.risklanding.pitch)[2]>0,'Positive','Negative'),
+                     ifelse(coef(lr.risklanding.duration)[2]>0,'Positive','Negative'))
+p_value <- rbind(summary(lr.risklanding.aircraft)$coefficients[2,4],
+                 summary(lr.risklanding.np)$coefficients[2,4],
+                 summary(lr.risklanding.sg)$coefficients[2,4],
+                 summary(lr.risklanding.h)$coefficients[2,4],
+                 summary(lr.risklanding.pitch)$coefficients[2,4],
+                 summary(lr.risklanding.duration)$coefficients[2,4])
+Table_3 <- cbind(Variable_Name,Size_Reg_Coeff,odds_ratio,direction_p,p_value)
+
+colnames(Table_3) <- c("Names of Variables","Size of Regression Coefficient","Odds Ratio","Direction of coefficient","p-value")
+
+Table_3 <- as.data.frame(Table_3)
+
+Table_3[,2] <- as.character(Table_3[,2])
+Table_3[,5] <- as.character(Table_3[,5])
+Table_3[,3] <- as.character(Table_3[,3])
+Table_3[,1] <- as.character(Table_3[,1])
+Table_3[,2] <- as.numeric(Table_3[,2])
+Table_3[,5] <- as.numeric(Table_3[,5])
+Table_3[,3] <- as.numeric(Table_3[,3])
+
+
+Table_4 <- Table_3[order(Table_1[,5],-Table_1[,3],-abs(Table_1[,2])),]
+Table_4
+
+```
+
+
+###Visualize the association
+```{r, message=FALSE, warning=FALSE}
+ggplot(FAA_uniq, aes(x=aircraft, fill=as.factor(risky.landing)))+geom_histogram(position="dodge")+theme(legend.position = "top")
+```
+
+```{r, message=FALSE, warning=FALSE}
+ggplot(FAA_uniq, aes(x=speed_ground, fill=as.factor(risky.landing)))+geom_histogram(position="dodge")+theme(legend.position = "top")
+
+```
+
+```{r, message=FALSE, warning=FALSE}
+ggplot(FAA_uniq, aes(x=height, fill=as.factor(risky.landing)))+geom_histogram(position="dodge")+theme(legend.position = "top")
+```
+The speed_ground variable is normally distributed for risky.landing = 0
+```{r, message=FALSE, warning=FALSE}
+ggplot(FAA_uniq, aes(x=pitch, fill=as.factor(risky.landing)))+geom_histogram(position="dodge")+theme(legend.position = "top")
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+#fitting the logistic regression model
+full2.lr <- glm(risky.landing~.,family=binomial, FAA_uniq)
+summary(full2.lr)
+```
+#Performing the forward selection using AIC and BIC criteria
+```{r, message=FALSE, warning=FALSE}
+null_model2<- glm(risky.landing ~ 1,data=FAA_uniq,family=binomial)
+full_model2 <- glm(risky.landing ~ .,data=FAA_uniq,family=binomial)
+#AIC
+AIC1<-step(null_model2,scope=list(lower=null_model2, upper=full_model2),trace=0,direction = "forward")
+summary(AIC1)
+
+```
+#AIC has resulted in a model with 3 most significant factors for the resposne variable, risky landing which are speed_ground, aircraft type and number of passengers.
+
+Using BIC
+```{r, message=FALSE, warning=FALSE}
+BIC1 <- step(null_model2,scope=list(lower=null_model2, upper=full_model2),k=log(nrow(FAA_uniq)))
+summary(BIC1)
+```
+#BIC has resulted in a model with 2 most significant factors for the resposne variable, risky landing which are speed_ground and aircraft type.
+#I would be taking the more conservative model that is presented by the BIC variable selection method.
+Step10 - Important inferences to present for Risky landings variable
+1. Best model: 
+#risky landing=-100.64 + 0.91*speed_ground + 3.97*aircraft
+2. speed_air contributing to a lot of missing values, so we based our final analysis using speed_ground as the most pertinent factor.
+3. I would be taking the more conservative model that is presented by the BIC variable selection method with AIC value being 45.96
+4. p-values are very less than 0.05; and regression coefficients are positive depicting to be in same direction of the response variable.
+
+
+###Compare the two models built for “long.landing” and “risky.landing”
+#Step 11
+1. Model to predict long landing response variable uses less predictors than risky landing model
+2. AIC value for risky landing model is less than long landing.
+3. Below is the table for the comparison
+```{r, message=FALSE, warning=FALSE}
+#Step11
+data.table::data.table(
+    check.names = FALSE,
+       `Model:` = c("No. of variables", "AIC","Variable Selection Method", "Common parameters"),
+   long.landing = c(3, 62.40,'Backward', 2),
+  risky.landing = c(2, 45.96,'Backward', 2)
+)
+```
+#Step12 ROC Curve
+```{r, message=FALSE, warning=FALSE}
+#long landing model
+long <-glm(long.landing~aircraft+speed_ground+height, family=binomial,FAA_uniq)
+
+#risky landing model
+risky <-glm(risky.landing~aircraft+speed_ground, family=binomial,FAA_uniq)
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+#Model evaluation based on predictive power
+library(ROCR)
+pred1 <- prediction(predict(long), FAA_uniq$long.landing)
+perf1 <- performance(pred1,"tpr","fpr")
+
+pred2 <- prediction(predict(risky),FAA_uniq$risky.landing)
+perf2 <- performance(pred2,"tpr","fpr")
+
+#AUC values
+unlist(slot(performance(pred1 , "auc"), "y.values"))
+unlist(slot(performance(pred2 , "auc"), "y.values"))
+```
+```{r, message=FALSE, warning=FALSE}
+plot(perf1,col="blue", main = 'ROC Curve', xlab = "1-Specificity", ylab = "Sensitvity", sub = "Threshold = 0.5")
+
+plot(perf2,col="red",add=TRUE)
+
+legend(0.6,0.45, c('long landing','risky landing'),lty=c(1,1),
+lwd=c(2,2),col=c('blue','red'))
+
+```
+ROC curve for long landing and risky landing model have almost same AUC.
+
+#Step13 Predicting the probabilities
+```{r, message=FALSE, warning=FALSE}
+#Boeing, duration=200, no_pasg=80, speed_ground=115, speed_air=120, height=40, pitch=4
+#Aircraft is encoded 0/1, Boeing =1
+values<-data.frame(aircraft=1, duration=200, no_pasg=80, speed_ground=115, speed_air=120, height=40, pitch=4)
+
+#Long.landing(L_P) probability and 95% Confidence Interval
+P1 <- predict(long, newdata=values, type="response", se=T)
+CI_Long <- c((P1$fit-
+                (1.96*P1$se.fit)),(P1$fit+(1.96*P1$se.fit)))
+#Risky.landing(R_P) probability and 95% Confidence Interval
+P2 <- predict(risky, newdata=values, type="response",se=T)
+CI_Risky <- c((P2$fit-
+                (1.96*P2$se.fit)),(P2$fit+(1.96*P2$se.fit)))
+
+```
+
+Below is the summary:
+```{r, message=FALSE, warning=FALSE}
+data.table::data.table(
+                         check.names = FALSE,
+                         `Model:` = c("Prob", "SE", "95% CI"),
+  L_P = c(1, 1.194455e-07,"(0.999,1.000)"),
+  R_P = c(0.99976, 0.0004983012, "(0.998,1.000)")
+)
+```
+
+#Compare models with different link functions
+```{r, message=FALSE, warning=FALSE}
+#Step14
+risky.probit <- glm(risky.landing~aircraft+speed_ground, family=binomial(link = probit),FAA_uniq)
+risky.cloglog <- glm(risky.landing~aircraft+speed_ground, family=binomial(link=cloglog),FAA_uniq)
+risky.logit <- glm(risky.landing~aircraft+speed_ground, family=binomial,FAA_uniq)
+
+#Table comparing AIC and Standard error for the 3 models
+data.table::data.table(
+  Parameters = c("AIC","Coefficients_Speed_ground", "SE_speed_ground"),
+      Probit = c(45.32,0.52, 0.12),
+     CLogLog = c(47.29,0.61, 0.13),
+       Logit = c(45.96,0.91, 0.22)
+)
+```
+Compared to logistic, the coefficients of probit complementary log-log model are smaller.
+This happens because probit has fat tails while cloglog is assymentric and has right skewed
+tail.
+
+#Step15 Plotting ROC curve of different models for riskylanding variable in the same plot
+```{r, message=FALSE, warning=FALSE}
+#Probit model
+pred_p <- prediction(predict(risky.probit), FAA_uniq$long.landing)
+perfp1 <- performance(pred_p,"tpr","fpr")
+
+#Hazard model
+pred_c <- prediction(predict(risky.cloglog),FAA_uniq$risky.landing)
+perfp2 <- performance(pred_c,"tpr","fpr")
+
+#Logit model
+pred_l <- prediction(predict(risky.logit),FAA_uniq$risky.landing)
+perfp3 <- performance(pred_l,"tpr","fpr")
+
+
+#AUC values
+unlist(slot(performance(pred_p , "auc"), "y.values"))
+unlist(slot(performance(pred_c , "auc"), "y.values"))
+unlist(slot(performance(pred_l , "auc"), "y.values"))
+```
+The Area under curve is almost same for all the different links' models. The Area is maximum for the Logistic model.
+#Plotting the ROC Curve
+```{r, message=FALSE, warning=FALSE}
+plot(perfp1,col="blue", main = 'ROC Curve', xlab = "1-Specificity", ylab = "Sensitvity", sub = "Threshold = 0.5")
+
+plot(perfp2,col="red",add=TRUE)
+plot(perfp3,col="green",add=TRUE)
+
+legend(0.6,0.6, c('probit','hazard','logit'),lty=c(1,1),
+lwd=c(2,2),col=c('blue','red','green'))
+```
+
+
+#Step16 Identification of top 5 risky landings
+```{r, message=FALSE, warning=FALSE}
+logit_p<- predict(risky.logit, type = "response")
+probit_p<- predict(risky.probit, type = "response")
+cloglog_p <- predict(risky.cloglog, type = "response") #Hazard
+
+#Top 5 for logit link
+head(sort(logit_p, decreasing = TRUE),5)
+```
+
+```{r, message=FALSE, warning=FALSE}
+#Top 5 for probit link
+head(sort(probit_p, decreasing = TRUE),5)
+```
+
+```{r, message=FALSE, warning=FALSE}
+#Top 5 for Hazard link
+head(sort(cloglog_p, decreasing = TRUE),5)
+```
+All the 3 links model have retured different top 5 flights with an overlap of Row 198 in all the three models.
+
+#Step17 Using probit and hazard models to make prediction
+```{r, message=FALSE, warning=FALSE}
+###Probit model
+
+#Predicted Probability
+probit_prob <- predict(risky.probit, newdata=values, type="response",se=T)
+#95% Confidence interval
+CI_probit <- c((probit_prob$fit-             (1.96*probit_prob$se.fit)),(probit_prob$fit+(1.96*probit_prob$se.fit)))
+
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+###Hazard model
+#Predicted Probability
+hazard_prob <- predict(risky.cloglog, newdata=values, type="response",se=T)
+#95% Confidence interval
+CI_hazard <- c((hazard_prob$fit-             (1.96*hazard_prob$se.fit)),(hazard_prob$fit+(1.96*hazard_prob$se.fit)))
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+#Comparison of 3 different link function models
+data.table::data.table(
+            check.names = FALSE,
+                  Model = c("Logit", "Probit", "Hazard"),
+  Pred_Prob = c(P2$fit, probit_prob$fit, hazard_prob$fit),
+                     SE = c(P2$se.fit, probit_prob$se.fit, hazard_prob$se.fit),
+               `95%.CI` = c("(0.9987858,1.0007392)", "(0.9999909,1.0000076)", "(1,1)")
+)
+```
+
